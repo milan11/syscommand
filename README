@@ -1,0 +1,85 @@
+JAVA SYSTEM COMMAND LIBRARY
+
+VERSION:
+0.1
+
+DESCRIPTION:
+Java library allowing:
+- executing of a system command with arguments
+- giving an input to the command (as a string)
+- reading the outputs (as a string, string array = lines, byte array, number)
+- piping of the commands (contains multithreaded pipeline implementation)
+- translating an invalid exit status to an exception (allows to specify valid exit statuses which do not cause an exception)
+- executing of a group of commands: in a specific working directory, using sudo, in chroot (with specifying the chroot directory), with ignoring of exit status
+- automatic logging of all executed commands with arguments and their exit statuses
+- wrapper classes for some commands (with methods adding command-specific arguments)
+
+DEPENDENCIES:
+Standard Java libraries only.
+
+DISTRIBUTION:
+Available at: https://github.com/milan11/syscommand
+This repository includes .java files (inside the "syscommand" package) and an Eclipse project file. The source code includes Javadoc comments.
+
+LICENSE:
+- Use at your own risk. There is absolutely no warranty of any kind.
+- Enjoy!
+
+EXAMPLES:
+// create a command context with the logger writing to standard output
+CommandContext context = new CommandContext(new OutputStreamWriter(System.out));
+
+// run: cp -r dir1 dir2
+new SingleCommand("cp", "-r", "dir1", "dir2")
+	.run_noout(context);
+// or
+new SingleCommand("cp")
+	.addArgs("-r")
+	.addArgs("dir1", "dir2")
+	.run_noout(context);
+// or
+new SingleCommand("cp")
+	.addArg_switch("r")
+	.addArgs("dir1", "dir2")
+	.run_noout(context);
+// or
+new Cp(new File("dir1"), new File("dir2"))
+	.recursive()
+	.run_noout(context);
+
+// run: cat file1
+// and get the output as string
+String contents1 =
+	new Cat(new File("file1"))
+	.run_rawstr(context);
+// or run it with sudo using context
+context.beginSudo();
+String contents2 =
+	new Cat(new File("file1"))
+	.run_rawstr(context);
+context.endSudo();
+// or run it with sudo using command override
+String contents3 =
+	new Cat(new File("file1"))
+	.overrideSudo_enable()
+	.run_rawstr(context);
+
+// set working directory to dir1 and get all directory names in it
+context.beginWorkingDir(new File("/"));
+String[] result =
+	new SingleCommand("find")
+	.addArgs(".")
+	.addArg_switch("mindepth", "1")
+	.addArg_switch("maxdepth", "1")
+	.addArg_switch("type", "d")
+	.addArg_switch("printf", "%f\\0")
+	.run_nullSeparated(context);
+context.endWorkingDir();
+
+// run: mount | grep ^tmpfs | wc -l
+// note that grep exits with code 1 if it founds nothing (but we want it to be considered as a valid exit status and to not cause an exception)
+long count =
+	new SingleCommand("mount")
+	.pipe(new SingleCommand("grep", "^tmpfs").addValidExitStatus(1))
+	.add("wc", "-l")
+	.run_long(context);
